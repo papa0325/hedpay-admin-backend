@@ -1,0 +1,63 @@
+---
+# tasks file for backend-update
+- name: Stop backend process
+  shell: 'pm2 stop {{ PROCESS_NAME }}'
+  ignore_errors: yes
+
+- name: Delete backend dir
+  file:
+    path: '{{ REMOTE_TARGET }}'
+    state: absent
+
+- name: Create backend dir
+  file:
+    path: '{{ REMOTE_TARGET }}'
+    state: directory
+    recurse: yes
+
+- name: Upload backend files
+  synchronize:
+    src: '{{ SRC_DIR }}'
+    dest: '{{ REMOTE_TARGET }}'
+
+- name: Install "typescript" node.js package globally.
+  npm:
+    name: typescript
+    global: yes
+  become: yes
+
+- name: Install packages based on package.json
+  npm:
+    path: '{{ REMOTE_TARGET }}'
+    state: present
+
+- name: Build code
+  shell: npm run build
+  args:
+    chdir: '{{ REMOTE_TARGET }}'
+
+- name: Copy or generate env file
+  template:
+    src: ./{{ backend_env }}.j2
+    dest: '{{ REMOTE_TARGET }}/{{ backend_env }}'
+
+- name: Copy or generate app.json
+  template:
+    src: ./{{ backend_app }}.j2
+    dest: '{{ REMOTE_TARGET }}/{{ backend_app }}'
+
+- name: Migrate database
+  shell: npx sequelize-cli db:migrate --url {{ DB_LINK }}
+  args:
+    chdir: '{{ REMOTE_TARGET }}'
+  ignore_errors: yes
+
+- name: Start backend process
+  shell: pm2 start app.json
+  args:
+    chdir: '{{ REMOTE_TARGET }}'
+
+- name: Saving current process list
+  shell: pm2 save
+  args:
+    chdir: '{{ REMOTE_TARGET }}'

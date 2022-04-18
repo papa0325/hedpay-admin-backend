@@ -1,0 +1,4 @@
+---
+# defaults file for backend-update
+backend_env: .env
+backend_app: app.json
